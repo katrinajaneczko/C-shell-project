@@ -1,0 +1,58 @@
+            ~~ GENERAL COMMANDS FOR MYSHELL ~~
+
+
+NAME
+myshell
+
+
+DESCRIPTION
+myshell is Katrina Janeczko's version of a simple C shell with I/O redirection capabilities, support of pipes, and support of background program execution. This shell may be invoked with no command line arguments, which will present it in Interactive Mode, or with a batchfile name as the argument, which will run the shell in Batch Mode and then exit the shell immediately after.
+
+
+STARTUP / SHUTDOWN
+Invoke the shell in one of two ways: either Interactive Mode or Batch Mode. To run the shell in Batch Mode, write something like ‘./myshell batchfile’. Then ‘batchfile’ is assumed to contain a set of command lines for the shell to process, and the shell will exit once it is finished processing the batchfile commands. To run the shell in Interactive Mode, invoke the shell with no command line argument, as in ‘./myshell’. Then it will prompt you to enter a command on the display, again and again, until the command quit is run (or an EOF character is entered).
+
+
+PROGRAM ENVIRONMENT
+PATH environment variable is inherited from the shell from which myshell was launched. Add/change PATH using the built-in command ‘path’ as explained below. The shell environment contains SHELL=<pathname>/myshell where <pathname>/myshell is the full path for the shell executable. Child processes created by the shell contain the entry PARENT=<pathname>/myshell as described.
+
+
+BUILT-IN COMMANDS
+myshell support the following internal commands: 
+
+cd <directory>
+Change the current default directory to  <directory>. If the <directory> argument is not present, report the current directory. This command also changes the PWD environment variable.  
+
+clr
+Clear the screen. 
+
+dir <directory>
+List the contents of directory <directory>. 
+
+environ
+List all the environment strings. 
+
+path
+Takes 0 or more arguments, with each argument separated by whitespace from the others. A typical usage would be like this: myshell> path /bin /usr/bin, which would add /bin and /usr/bin to the search path of the shell. If the user sets path to be empty, then the shell cannot run any programs (except built-in commands). The path command always overwrites the old path with the newly specified path.
+
+echo <comment>
+Display  <comment> on the display followed by a new line (multiple spaces/tabs reduced to a single space). 
+
+help
+Display the user manual using the more filter.  
+
+pause
+Pause operation of the shell until 'Enter' is pressed. 
+
+quit
+Quit the shell. 
+
+
+INPUT/OUTPUT REDIRECTION
+myshell supports I/O redirection on either or both stdin and/or stdout. That is, the command line ‘programname arg1 arg2 < inputfile > outputfile’ will execute the program ‘programname’ with arguments ‘arg1’ and ‘arg2’, the stdin FILE stream replaced by ‘inputfile’ and the stdout FILE stream replaced by ‘outputfile’. With output redirection, if the redirection character is ‘>’ then the outputfile is created if it does not exist and truncated if it does. If the redirection token is ‘>>’ then outputfile is created if it does not exist and appended to if it does. The shell supports both input and output redirection at once, such as ‘programname arg1 < input file >> outputfile’.
+
+BACKGROUND EXECUTION
+myshell supports background execution of programs. Use an ampersand (&) at the end of the command line to cause the shell to return to the command line prompt immediately after launching the program preceding it. The shell supports multiple background program commands in a row in order to achieve parallel commands, such as ‘prog1 & prog2 & prog3’. In this case, instead of running prog1 and then waiting for it to finish, myshell runs prog1, prog2, and  prog3 in parallel, before waiting for any of them to complete.
+
+PIPE IMPLEMENTATION
+myshell includes an implementation of command line pipes, which are essentially an extension of redirection, so that commands can be strung together. An example is ‘prog1 arg1 | prog2 | prog3’, where the output of prog1 would be redirected to the input of prog2, and the output of prog2 would be redirected as the input of prog3.

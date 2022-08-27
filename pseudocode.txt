@@ -1,0 +1,336 @@
+// Katrina Janeczko
+// 3207.003
+// 2-25-2022
+// Project 2A: Developing a Linux Shell - Pseudocode
+
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include <string.h>
+
+
+MYSHELL.C MODULE: contains main() and functions related to main
+
+int main(int argc, char** argv) {
+
+    load configuration files if needed
+    use number of arguments to determine if running in interactive vs batch mode
+    if (batch_mode) {
+        get and store filename
+    }   
+
+    initialize_shell();
+    read_eval_print_loop();
+
+    shutdown_cleanup();
+    return 0;
+}
+
+void initialize() {
+    gethostname();
+    print_greeting_to_user();
+    clear_screen();
+}
+
+void loop() {
+    char *line;
+    char **parsed_line;
+    int status; 
+    
+    create new_stdout_fd and and new_stdin_fd
+    using dup() to save in case of redirection
+
+    do {
+        if (interactive_mode) {
+            prompt_user();
+        }
+
+        line = read_cmdline();
+        parse_line_into_array_of_strings(line, parsed_line); 
+        status = evaluate(parsed_line);
+
+        fflush(stdout) and fflush(stdin)
+        restore stdout and stdin with dup2
+    } while(status); 
+}
+
+________________________________________________________________________________________
+LOOP.C MODULE: contains functions used in loop()
+
+char *read_cmdline() {
+    FILE *stream;
+    char *line = NULL;
+    int size;
+    
+    if (interactive_mode) {
+        stream = stdin;
+    } 
+    else {
+        stream = get_batchfile();
+    }
+
+    if (getline(&line, &size, stream) == -1) {
+        if (feof(stream)) {
+            exit(0);
+        }
+        else {
+            exit(1);
+        }
+    }
+    return line;
+}
+
+void parse_line_into_array_of_strings(line, parsed_line) {
+    int arg_count; 
+
+    for (arg_count=0; arg_count < MAXARGS; arg_count++) {
+        parsed_line[arg_count] = strsep(&line, " \n\t"); 
+
+        if (parsed_line[arg_count] == NULL) {
+            break;
+        }
+    }
+}
+
+int evaluate(char **parsed_line) {
+    if (empty(parsed_args[0]) {
+        return 1; 
+    }
+
+    if (redirect_symbol_included(parsed_line)){
+        if ">" {
+            redirect_output_create(parsed_line)
+        } else if ">>" {
+            redirect_output_append(parsed_line)
+        } else {
+            redirect_input(parsed_line)
+        }
+    }
+
+    if (!pipe_symbol_included(parsed_line)) {
+        if ( is_builtin_command(parsed_line[0])) {
+            execute_builtin_command(parsed_line);
+        } 
+        else {
+            return launch_process(parsed_line);
+        }
+    } else {
+        deal_with_pipe(parsed_line);
+    }
+
+    return 1;
+}
+
+int launch_process(char **parsed_line) {
+    pid_t child_pid;
+
+    child_pid = fork();
+    if (child_pid == -1) {
+        report error forking
+    } 
+    else if (child_pid == 0) {
+        exec (parsed_line);
+        return, go back to loop
+    } 
+    else {
+        if (!run_in_background(parsed_line)){
+            wait (child_pid);
+        } else {
+            add_to_background_jobs_list(parsed_line);
+        }		
+    }
+}
+
+________________________________________________________________________________________
+PIPING.C MODULE: contains definitions of pipe-specific functions 
+
+int index_of_pipe (parsed_line) {
+    for (all entries in parsed_line array){
+        if (strcmp(entry,"|") == 0) {
+            return index;
+        }
+    }
+}
+
+deal_with_pipe(parsed_line) {
+    char *leftside[100];
+    char *rightside[100];
+    put all args from parsed_line that come before index_of_pipe() in leftside array,
+    all that come after in rightside array
+
+    int pid1 = -1, pid2 = -1;
+    int pipe_file_descriptors[2] where [0] will be read from and [1] written to
+
+    // create pipe
+    if (pipe(pipe_file_descriptors) == -1){
+        throw error in creating pipe
+    }
+    // fork first child 
+    if ((pid = fork()) < 0){
+        throw error that fork 1 failed
+    }
+
+    if(pid == 0) { // first child 
+    close(pipe_file_descs[0], the read side)
+    dup2(pipe_file_descs[1], 1); // redirect stdout to write side of pipe
+    close(pipe_file_descs[1]);
+    
+    pass leftside to evaluate() function
+    }
+
+    // fork second child
+    if ((pid2 = fork()) < 0){
+        throw error that fork2 failed
+    }
+    if(pid2 == 0) { // second child
+        close(pipe_file_descs[1], write side of pipe);
+        dup2(pipe_file_descs[0], 0); // redirect stdin to read side of pipe
+        close(pipe_file_descs[0]);
+        
+        pass rightside to evaluate() function
+    }
+
+    // -1 signifies to wait for ALL children to finish
+    waitpid(-1, NULL, 0) to wait for all children to finish
+
+    close(pipe_file_descs[0]);
+    close(pipe_file_descs[1]);
+    }
+
+}
+
+
+________________________________________________________________________________________
+REDIRECTION.C MODULE: contains functions used for I/O redirection (and checking for '&')
+
+void redirect_output_create(parsed_line) {
+    int i = get index of '>';
+    char* filename = parsed_line[i+1];
+    int output_file_descriptor = open filename with read/write permissions
+    dup2(output_file_descriptor, STDOUT_FILENO);
+}
+
+void redirect_output_append(parsed_line) {
+    int i = get index of '>>';
+    char* filename = parsed_line[i+1];
+    int output_file_descriptor = open filename with read/write/truncate permissions
+    dup2(output_file_descriptor, STDOUT_FILENO);
+}
+
+void redirect_input(parsed_line) {
+    int i = get index of '<'
+    char* filename = parsed_line[i+1];
+    int input_file_descriptor = open filename with read permissions
+    dup2(input_file_descriptor, STDIN_FILENO);
+}
+
+int run_in_background(char **parsed_line) {
+    if (last argument is '&') {
+        return 1;
+    }
+    return 0;
+}
+
+________________________________________________________________________________________
+BUILTINS.C MODULE: contains definitions of all builtin functions 
+
+int is_builtin_command(char *parsed_line[0]) {
+    for (each built-in command name) {
+        if (using strcmp() to compare reveals a match) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+void cd(){
+  if no second argument entered {
+    getcwd() and print cwd
+  } else {
+    use chdir(argument) to change directory
+    if chdir() returns nonzero {
+        check if errno==ENOENT
+        then does not exist, print error
+    }
+  }
+}
+
+void clr() {
+    printf("\033[H\033[J");
+}
+
+void dir() {
+    create struct dirent and DIR pointers
+    open directory corresponding to "."
+    if dir is NULL {
+        throw error
+    }
+    while ( (dirent pointer = readdir(dir)) != NULL) {
+        print entry name
+    }
+}
+
+void environ() {
+    take in char **envp from main
+    for each environment variable (LOGNAME, PATH, SHELL, etc...) {
+        use getenv("VAR") to retrieve the value
+        then print that value
+    }
+}
+
+void path() {
+    take in args and make into a string separated by ":"s
+    use setenv("PATH",newpath,1) to set new path(s) specified by user
+}
+
+void echo() {
+    if (no second argument entered) {
+        print error
+    }
+    else {
+        for (every string in parsed_line) {
+            print the string
+        }
+        print "\n"
+    }
+}
+
+void help() {
+    FILE *f;
+    char c;
+    if ( (f = fopen("readme_doc", "r")) == NULL) {
+        throw error
+    }
+    while( (c = fgetc(f)) != EOF) {
+        print each char
+    }
+}
+
+void pause() {
+    while (1) {
+        if (user enters "\n" to stdin) {
+            break;
+        }
+    }
+}
+
+void quit() {
+  exit(0); 
+}
+
+________________________________________________________________________________________
+TESTING PLAN 
+
+I will start with each module separately constructing each function and I will test and debug as I go along.
+I will use gdb to help me debug as well. I will put commands that I saw on the lab powerpoints
+and from examples in class into a batch file and I will try out my shell with that, as well
+as typing them in using interactive mode to make sure everything works there. I will create a 
+bunch of files to test with such as a test helloworld.c program for my shell to try to run gcc on 
+and then run the executable, and I will have an input.txt and output.txt file to test if redirection is working. 
+Of course I will do this all incrementally to make sure it works as I go. I anticipate having to change 
+a lot from my pseudocode given that it isn't totally complete as I haven't been testing these functions 
+as I write since it isn't real code, but this is a good start.
